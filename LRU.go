@@ -12,9 +12,9 @@ type LRU struct {
 	max   int
 	size  int
 	ttl   int64
-	Items map[string]interface{}
-	first interface{}
-	last  interface{}
+	items map[string]*node
+	first *node
+	last  *node
 }
 
 type node struct {
@@ -40,21 +40,20 @@ func New(max int, ttl int64) (error, *LRU) {
 		ttl:   ttl,
 		first: nil,
 		last:  nil,
-		Items: make(map[string]interface{}),
+		items: make(map[string]*node),
 	}
 }
 
 func (cache *LRU) has(key string) (exists bool) {
-	_, exists = cache.Items[key]
+	_, exists = cache.items[key]
 
 	return
 }
 
 func (cache *LRU) Keys() []string {
+	keys := make([]string, 0, len(cache.items))
 
-	keys := make([]string, 0, len(cache.Items))
-
-	for k := range cache.Items {
+	for k := range cache.items {
 
 		keys = append(keys, k)
 
@@ -62,10 +61,10 @@ func (cache *LRU) Keys() []string {
 
 	return keys
 
-	// keys := make([]string, len(cache.Items)) //TODO: test in benchmarks
+	// keys := make([]string, len(cache.items)) //TODO: test in benchmarks
 	// i := 0
 
-	// for k := range cache.Items {
+	// for k := range cache.items {
 
 	// 	keys[i] = k
 	// 	i++
@@ -75,20 +74,146 @@ func (cache *LRU) Keys() []string {
 	// return keys
 }
 
-func (*LRU) Delete(key string) {
-	return
+func (cache *LRU) Clear() *LRU {
+	cache.size = 0
+	cache.first = nil
+	cache.last = nil
+	cache.items = make(map[string]*node)
+
+	return cache
 }
 
-func (cache *LRU) Set(key string, value interface{}) {
+func (cache *LRU) evict() {
+	if cache.first == nil {
+		return
+	}
 
-	cache.Items[key] = value
+	item := cache.first
+	delete(cache.items, item.key)
 
-	return
+	cache.first = item.next
+	if cache.first != nil {
+		cache.first.prev = nil
+	}
+	cache.size--
 }
 
-func newNode(key string, value interface{}, expiry int64) *node {
+func (cache *LRU) Get(key string) interface{} {
+	if cache.has(key) {
+		item := cache.items[key]
 
-	return &node{value, key, expiry, nil, nil}
+		if cache.ttl > 0 && item.expiry < dateNow()+cache.ttl {
+			cache.Delete(key)
+		} else {
+
+			cache._set(key, item.value, true)
+			return item.value
+		}
+	}
+
+	return nil
+}
+
+func (cache *LRU) Delete(key string) *LRU {
+	if cache.has(key) {
+		item := cache.items[key]
+
+		if item.prev != nil {
+			item.prev.next = item.next
+		}
+
+		if item.next != nil {
+			item.next.prev = item.prev
+		}
+
+		if cache.first == item {
+			cache.first = item.next
+		}
+
+		if cache.last == item {
+			cache.last = item.prev
+		}
+	}
+
+	return cache
+}
+
+func (cache *LRU) _set(key string, value interface{}, bypass bool) {
+	var item *node
+
+	if cache.has(key) {
+		item = cache.items[key]
+		item.value = value
+
+		if !bypass {
+			var expiry int64 = cache.ttl
+
+			if cache.ttl > 0 {
+				expiry = cache.ttl + dateNow()
+			}
+
+			item.expiry = expiry
+		}
+
+		if cache.last != item {
+			last := cache.last
+			next := item.next
+			prev := item.prev
+
+			if cache.first == item {
+				cache.first = item.next
+			}
+
+			item.next = nil
+			item.prev = cache.last
+			last.next = item
+
+			if prev != nil {
+				prev.next = next
+			}
+
+			if next != nil {
+				next.prev = prev
+			}
+		}
+	} else {
+		if cache.max > 0 && cache.size >= cache.max {
+			cache.evict()
+		}
+
+		var expiry int64 = cache.ttl
+
+		if cache.ttl > 0 {
+			expiry = cache.ttl + dateNow()
+		}
+
+		item = newNode(
+			key,
+			value,
+			expiry,
+			nil,
+			cache.last,
+		)
+		cache.items[key] = item
+
+		if cache.size++; cache.size == 1 {
+			cache.first = item
+		} else {
+			cache.last.next = item
+		}
+	}
+
+	cache.last = item
+}
+
+func (cache *LRU) Set(key string, value interface{}) *LRU {
+	cache._set(key, value, false)
+	return cache
+}
+
+func newNode(key string, value interface{}, expiry int64, next *node, prev *node) *node {
+
+	return &node{value, key, expiry, next, prev}
 
 }
 
@@ -116,14 +241,9 @@ func main() {
 	fmt.Println(cache.has("george"))
 	fmt.Println(cache.Keys())
 
-	// cache.items.PushBack(newNode('['))
+	cache.Clear()
+
+	fmt.Println(cache.has("george"))
+	fmt.Println(cache.Keys())
 
 }
-
-// func main() {
-// 	mymap := make(map[int]string)
-// 	keys := make([]int, 0, len(mymap))
-// 	for k := range mymap {
-// 			keys = append(keys, k)
-// 	}
-// }
