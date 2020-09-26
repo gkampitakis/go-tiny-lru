@@ -1,10 +1,7 @@
-// package LRU
-package main
+package LRU
 
 import (
 	"errors"
-	"fmt"
-	"log"
 	"time"
 )
 
@@ -220,30 +217,5 @@ func newNode(key string, value interface{}, expiry int64, next *node, prev *node
 func dateNow() int64 {
 
 	return time.Now().Unix()
-
-}
-
-func main() {
-
-	err, cache := New(10, 10)
-
-	if err != nil {
-
-		log.Fatal(err)
-
-	}
-
-	fmt.Println(dateNow())
-
-	cache.Set("george", "name")
-	cache.Set("george1", "name")
-
-	fmt.Println(cache.has("george"))
-	fmt.Println(cache.Keys())
-
-	cache.Clear()
-
-	fmt.Println(cache.has("george"))
-	fmt.Println(cache.Keys())
 
 }
