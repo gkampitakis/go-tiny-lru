@@ -57,18 +57,6 @@ func (cache *LRU) Keys() []string {
 	}
 
 	return keys
-
-	// keys := make([]string, len(cache.items)) //TODO: test in benchmarks
-	// i := 0
-
-	// for k := range cache.items {
-
-	// 	keys[i] = k
-	// 	i++
-
-	// }
-
-	// return keys
 }
 
 func (cache *LRU) Clear() *LRU {

@@ -15,5 +15,8 @@ print:
 clean: 
 	rm coverage.out
 
+benchmarks: 
+	go test -run=XXX -bench=.	
+
 getVersion:
 	@tail -n 1 go.mod |  cut -f2 -d":" | cut -c2-

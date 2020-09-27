@@ -3,6 +3,7 @@ package LRU
 import (
 	"bou.ke/monkey"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -294,6 +295,60 @@ func TestSet(t *testing.T) {
 	})
 }
 
+/**
+Benchmarks
+*/
+
+func BenchmarkSet(b *testing.B) {
+	_, cache := New(1000, 1000)
+	for n := 0; n < b.N; n++ {
+		cache.Set("mockValue"+strconv.Itoa(n), newMockStruct("test"+strconv.Itoa(n), 10))
+	}
+}
+
+func BenchmarkGet(b *testing.B) {
+	_, cache := New(1000, 1000)
+
+	cache.Set("mockValue", newMockStruct("test0", 10))
+
+	for n := 0; n < b.N; n++ {
+		cache.Get("mockValue")
+	}
+}
+
+func BenchmarkClear(b *testing.B) {
+	_, cache := New(1000, 1000)
+
+	for n := 0; n < b.N; n++ {
+		cache.Clear()
+	}
+}
+
+func BenchmarkDelete(b *testing.B) {
+	_, cache := New(1000, 1000)
+
+	for n := 0; n < b.N; n++ {
+		cache.Set("mockValue", newMockStruct("test0", 10))
+		cache.Delete("mockValue")
+		cache.Delete("mockValue")
+	}
+}
+
+func BenchmarkKeys(b *testing.B) {
+	_, cache := New(1000, 1000)
+
+	for i := 0; i < 100; i++ {
+		cache.Set("mockValue"+strconv.Itoa(i), newMockStruct("test"+strconv.Itoa(1), 10))
+	}
+
+	for n := 0; n < b.N; n++ {
+		cache.Keys()
+	}
+}
+
+/**
+Utils
+*/
 func newMockStruct(valueStr string, valueInt int) *mockStruct {
 	return &mockStruct{valueStr, valueInt}
 }
