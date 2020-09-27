@@ -162,37 +162,135 @@ func TestClear(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	t.Run("Should try to delete item even if not existent", func(t *testing.T) {
+		_, cache := New(10, 0)
 
+		cache.Delete("mockValue")
 	})
 
 	t.Run("Should delete the only item", func(t *testing.T) {
+		_, cache := New(10, 0)
 
+		cache.Set("mockValue", newMockStruct("test0", 10))
+		cache.Delete("mockValue")
+
+		test := cache.Get("mockValue") != nil ||
+			cache.first != cache.last ||
+			cache.first != nil
+
+		if test {
+			t.Errorf("LRU Delete with only one item failed")
+		}
 	})
 
-	t.Run("Should delete the last item", func(t *testing.T) {
+	t.Run("Should delete the correct item", func(t *testing.T) {
+		_, cache := New(10, 0)
 
+		cache.Set("mockValue0", newMockStruct("test0", 10))
+		cache.Set("mockValue1", newMockStruct("test1", 10))
+		cache.Set("mockValue2", newMockStruct("test2", 10))
+		cache.Set("mockValue3", newMockStruct("test3", 10))
+
+		cache.Delete("mockValue2")
+
+		if cache.has("mockValue2") || cache.size != 3 {
+			t.Errorf("Value was not deleted")
+		}
 	})
 }
 
 func TestSet(t *testing.T) {
-	t.Run("Should create item if not existent", func(t *testing.T) {
+	var counter = 0
 
+	monkey.Patch(dateNow, func() int64 {
+		value := int64(1 * counter)
+		counter += 1000000
+
+		return value
+	})
+
+	t.Run("Should create item if not existent", func(t *testing.T) {
+		_, cache := New(10, 0)
+
+		item0, item1, item2 := newMockStruct("test0", 10), newMockStruct("test1", 10), newMockStruct("test2", 10)
+
+		cache._set("mockValue0", item0, false)
+		cache._set("mockValue1", item1, false)
+		cache._set("mockValue2", item2, false)
+		cache._set("mockValue1", item1, false)
+
+		test := cache.size != 3 ||
+			cache.first.value != item0 ||
+			cache.last.value != item1
+
+		if test {
+			t.Errorf("Value was not added correctly to LRU")
+		}
 	})
 
 	t.Run("Should evict item if max capacity reached and add it at the end", func(t *testing.T) {
+		_, cache := New(3, 0)
 
-	})
+		item0, item1, item2, item3 := newMockStruct("test0", 10),
+			newMockStruct("test1", 10),
+			newMockStruct("test2", 10),
+			newMockStruct("test3", 10)
 
-	t.Run("Should evict item if max capacity reached", func(t *testing.T) {
+		cache._set("mockValue0", item0, false)
+		cache._set("mockValue1", item1, false)
+		cache._set("mockValue2", item2, false)
+		cache._set("mockValue3", item3, false)
 
+		test := cache.size != 3 ||
+			cache.first.value != item1 ||
+			cache.last.value != item3
+
+		if test {
+			t.Fail()
+		}
 	})
 
 	t.Run("Should refresh expiry", func(t *testing.T) {
+		_, cache := New(10, 100)
 
+		item0, item1, item2 := newMockStruct("test0", 10),
+			newMockStruct("test1", 10),
+			newMockStruct("test2", 10)
+
+		cache._set("mockValue0", item0, false)
+		cache._set("mockValue1", item1, false)
+
+		expiry := cache.items["mockValue0"].expiry
+
+		cache._set("mockValue0", item2, false)
+
+		test := expiry == cache.items["mockValue0"].expiry ||
+			cache.last.value != item2
+
+		if test {
+			t.Fail()
+		}
 	})
 
 	t.Run("Should not refresh expiry just move item as last accessed", func(t *testing.T) {
+		_, cache := New(10, 0)
 
+		item0, item1, item2 := newMockStruct("test0", 10),
+			newMockStruct("test1", 10),
+			newMockStruct("test2", 10)
+
+		cache._set("mockValue0", item0, true)
+		cache._set("mockValue1", item1, true)
+
+		expiry := cache.items["mockValue0"].expiry
+
+		cache._set("mockValue0", item2, true)
+
+		test := expiry != cache.items["mockValue0"].expiry ||
+			cache.last.value != item2
+
+		if test {
+			t.Fail()
+		}
 	})
 }
 

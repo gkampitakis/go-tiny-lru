@@ -115,6 +115,9 @@ func (cache *LRU) Delete(key string) *LRU {
 	if cache.has(key) {
 		item := cache.items[key]
 
+		delete(cache.items, key)
+		cache.size--
+
 		if item.prev != nil {
 			item.prev.next = item.next
 		}
