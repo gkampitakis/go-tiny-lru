@@ -3,6 +3,7 @@
 !*.*
 # Unignore all dirs
 !*/
+!License
 
 # Binaries for programs and plugins
 *.exe
